@@ -1,0 +1,11 @@
+[package]
+name = "chip8"
+version = "0.1.0"
+authors = ["Rijenkii <me@rijenkii.tk>"]
+edition = "2018"
+
+[dependencies]
+clap = "*"
+rand = "*"
+spin_sleep = "*"
+piston_window = "*"
