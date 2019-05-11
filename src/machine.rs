@@ -1,6 +1,12 @@
 use crate::instruction::Instruction;
 use crate::screen::{Screen, SPRITES};
 
+enum LoadKeyState {
+    None,
+    WaitPress { reg: usize },
+    WaitRelease { reg: usize, key: usize },
+}
+
 pub struct Machine {
     freq_multiplier: u8,
     timer_decrease: u8,
@@ -15,6 +21,8 @@ pub struct Machine {
     i: usize,
     delay: u8,
     sound: u8,
+
+    load_key: LoadKeyState,
 
     screen: Screen,
 }
@@ -41,6 +49,8 @@ impl Machine {
             delay: 0,
             sound: 0,
 
+            load_key: LoadKeyState::None,
+
             screen: Screen::new(),
         }
     }
@@ -55,25 +65,50 @@ impl Machine {
         Ok(Self::new(freq_multiplier, &program))
     }
 
-    pub fn memory(&self) -> [u8; 4096] { self.memory }
-
     pub fn step(&mut self, pressed_keys: [bool; 16]) {
-        if self.timer_decrease == 0 {
-            if self.delay != 0 { self.delay -= 1; }
-            if self.sound != 0 { self.sound -= 1; }
-            self.timer_decrease = self.freq_multiplier;
+        match self.load_key {
+            LoadKeyState::None => {
+                if self.timer_decrease == 0 {
+                    if self.delay != 0 {
+                        self.delay -= 1;
+                    }
+                    if self.sound != 0 {
+                        self.sound -= 1;
+                    }
+                    self.timer_decrease = self.freq_multiplier;
+                }
+                self.timer_decrease -= 1;
+
+                let instr = Instruction::parse(
+                    self.memory[self.memory_pos],
+                    self.memory[self.memory_pos + 1],
+                )
+                .unwrap();
+
+                println!(
+                    "0x{:03X}: ({:02X}{:02X}) {}",
+                    self.memory_pos,
+                    self.memory[self.memory_pos],
+                    self.memory[self.memory_pos + 1],
+                    instr
+                );
+                self.execute_instruction(instr, pressed_keys);
+            },
+            LoadKeyState::WaitPress { reg } => {
+                for (i, key) in pressed_keys.iter().enumerate() {
+                    if *key {
+                        self.load_key = LoadKeyState::WaitRelease { reg, key: i };
+                        break;
+                    }
+                }
+            },
+            LoadKeyState::WaitRelease { reg, key } => {
+                if !pressed_keys[key] {
+                    self.load_key = LoadKeyState::None;
+                    self.registers[reg] = key as _;
+                }
+            },
         }
-        self.timer_decrease -= 1;
-
-        let instr = Instruction::parse(
-            self.memory[self.memory_pos],
-            self.memory[self.memory_pos + 1],
-        ).unwrap();
-
-        // print!("0x{:03X}: ({:02X}{:02X}) {}; ", self.memory_pos, self.memory[self.memory_pos], self.memory[self.memory_pos + 1], instr);
-        self.execute_instruction(instr, pressed_keys);
-        // println!("{:?}, I: {}, DT: {}, ST: {}", self.registers, self.i, self.delay, self.sound);
-        // self.delay = 0;
     }
 
     fn execute_instruction(&mut self, instr: Instruction, pressed_keys: [bool; 16]) {
@@ -103,7 +138,7 @@ impl Machine {
                 self.memory_pos = self.stack[self.stack_pos];
                 increase_mem_pos = 0;
             },
-            
+
             Instruction::SkipEqByte(x, b) => {
                 // Skip instruction if Vx == b
                 if self.registers[x] == b {
@@ -140,7 +175,6 @@ impl Machine {
                     increase_mem_pos += 2;
                 }
             },
-            
 
             Instruction::LoadByte(x, b) => {
                 // Vx = b
@@ -204,7 +238,7 @@ impl Machine {
             },
             Instruction::LoadPressed(x) => {
                 // Vx = released button (wait for a release)
-                unimplemented!("LoadPressed is unimplemented yet");
+                self.load_key = LoadKeyState::WaitPress { reg: x };
             },
             Instruction::SetDelay(x) => {
                 // DT = Vx
@@ -259,5 +293,7 @@ impl Machine {
         self.memory_pos += increase_mem_pos;
     }
 
-    pub fn screen(&mut self) -> &mut Screen { &mut self.screen }
+    pub fn screen(&mut self) -> &mut Screen {
+        &mut self.screen
+    }
 }

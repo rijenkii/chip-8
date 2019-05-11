@@ -60,7 +60,13 @@ impl Screen {
         collision
     }
 
-    pub fn buffer(&self) -> &[[bool; 64]; 32] { &self.buffer }
-    pub fn needs_redraw(&self) -> bool { self.redraw }
-    pub fn redrawn(&mut self) { self.redraw = false; }
+    pub fn buffer(&self) -> [[bool; 64]; 32] {
+        self.buffer
+    }
+    pub fn needs_redraw(&self) -> bool {
+        self.redraw
+    }
+    pub fn redrawn(&mut self) {
+        self.redraw = false;
+    }
 }
