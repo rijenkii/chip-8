@@ -35,3 +35,4 @@ ARGS:
 * Pausing
 * Step-by-step emulation
 * Debugger
+* Sound
