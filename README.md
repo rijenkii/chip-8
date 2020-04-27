@@ -1,4 +1,4 @@
-# Rust CHIP-8 emulator
+# Rust CHIP-8 Interpreter
 
 ```
 chip8 0.1.0
